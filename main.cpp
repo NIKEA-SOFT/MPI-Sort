@@ -49,6 +49,10 @@ void Sort(std::vector<Type>& array)
                 std::swap(array[j], array[j + 1]);
             }
         }
+        
+        if(isFinish) {
+            break;
+        }
     }
 }
 
