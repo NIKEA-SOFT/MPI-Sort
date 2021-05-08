@@ -150,8 +150,8 @@ void Cluster() {
     MPI_Status status;
     std::vector<DATA_TYPE> array;
 
-    const bool isLast = (Machine::m_MachineID == (Machine::m_MachineSize - 1));
     {
+        const bool isLast = (Machine::m_MachineID == (Machine::m_MachineSize - 1));
         const std::uint32_t taskPerProcess = Machine::m_SizeArray / (Machine::m_MachineSize - 1);
         const std::uint32_t taskRemainder = Machine::m_SizeArray - (Machine::m_MachineSize - 1) * taskPerProcess;
 
