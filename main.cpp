@@ -10,18 +10,20 @@
 #define DATA_TYPE       std::uint32_t
 #define SEND_TYPE       MPI_UINT32_T
 
+// Storage info about Machine and clusters
 struct Machine {
 
     static bool IsMaster() noexcept {
         return m_MachineID == MACHINE_ROOT_ID;
     }
 
-    inline static int m_MachineID;
-    inline static int m_MachineSize;
+    inline static int m_MachineID;      // Current process machine ID
+    inline static int m_MachineSize;    // Count of concurrent machines
 
     inline static constexpr std::uint32_t m_SizeArray = 100;
 };
 
+// Fill array with random values
 template <typename Type, typename = std::enable_if_t<std::is_integral_v<Type>>>
 void Fill(std::vector<Type>& array) {
     std::random_device random_device;
@@ -33,6 +35,7 @@ void Fill(std::vector<Type>& array) {
     }
 }
 
+// Sort array with algorithm bubble sort
 template <typename Type, typename = std::enable_if_t<std::is_integral_v<Type>>>
 void Sort(std::vector<Type>& array)
 {
@@ -49,8 +52,12 @@ void Sort(std::vector<Type>& array)
     }
 }
 
+// Entry point for Master machine
+// If no cluster machines, then the Master machine will sort it
+// Otherwise, the array is split and sent to clusters for sorting
 void Master()
 {
+    // Prepare array and fill with random values
     std::vector<DATA_TYPE> array;
     array.resize(Machine::m_SizeArray);
     Fill(array);
@@ -59,6 +66,7 @@ void Master()
         std::cout << "[Master] ID: " << Machine::m_MachineID << " fill value: " << value << " to array" << std::endl;
     }
 
+    // Check count of machines
     if(Machine::m_MachineSize == 1)
     {
         std::cout << "[Info] Cluster machines not found, using Master machine for sorting!" << std::endl;
@@ -72,11 +80,13 @@ void Master()
         std::cout << std::endl;
         std::cout << "----- [Start sorting with Clusters: " << (Machine::m_MachineSize - 1) << "] -----" << std::endl;
 
+        // Calculate distribution of array
         const std::uint32_t taskPerProcess = static_cast<std::uint32_t>(array.size()) / (Machine::m_MachineSize - 1);
         const std::uint32_t taskRemainder = static_cast<std::uint32_t>(array.size()) - (Machine::m_MachineSize - 1) * taskPerProcess;
 
         std::cout << "[Info] TaskPerProcess: " << taskPerProcess << " | taskRemainder: " << taskRemainder << std::endl;
 
+        // Send task to Clusters for sorting
         std::uint32_t offset = 0;
         for(int i = 1; i < Machine::m_MachineSize; ++i)
         {
@@ -105,6 +115,7 @@ void Master()
         std::vector<std::vector<DATA_TYPE>> data;
         data.resize(Machine::m_MachineSize - 1);
 
+        // Recv sorted array from clusters and fill data array's
         for(int i = 1; i < Machine::m_MachineSize; ++i)
         {
             offset = i - 1;
@@ -146,11 +157,13 @@ void Master()
     }
 }
 
+// Entry point for Cluster machine
 void Cluster() {
     MPI_Status status;
     std::vector<DATA_TYPE> array;
 
     {
+        // Calculate size of array
         const bool isLast = (Machine::m_MachineID == (Machine::m_MachineSize - 1));
         const std::uint32_t taskPerProcess = Machine::m_SizeArray / (Machine::m_MachineSize - 1);
         const std::uint32_t taskRemainder = Machine::m_SizeArray - (Machine::m_MachineSize - 1) * taskPerProcess;
@@ -162,6 +175,7 @@ void Cluster() {
         }
     }
 
+    // Recv array from Master machine and fill in array
     MPI_Recv(array.data(), array.size(), SEND_TYPE, MACHINE_ROOT_ID, MSG_SORT_TAG, MPI_COMM_WORLD, &status);
 
     std::cout << std::endl;
@@ -187,6 +201,8 @@ void Cluster() {
     }*/
 
     //std::cout << "[Cluster] ID: " << Machine::m_MachineID << " send data size: " << array.size() << " to MasterID: " << status.MPI_SOURCE << std::endl;
+    
+    // Send result on Master machine
     MPI_Send(array.data(), array.size(), SEND_TYPE, status.MPI_SOURCE, MSG_SORT_TAG, MPI_COMM_WORLD);
 }
 
